@@ -1,85 +1,130 @@
-﻿// Form1.cs - 400x400 布局
+﻿// Form1.cs - 修复菜单栏位置
 using System;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Linq;
 
 namespace GoogologyExpander
 {
 	public partial class mainForm : Form
 	{
-		private PrssEngine engine;
+		private PrssEngine prssEngine;
+		private BmsEngine bmsEngine;
 		private TextBox txtInput;
 		private TextBox txtOutput;
 		private NumericUpDown nudSteps;
+		private ComboBox cmbMode;
 		private Button btnExpand;
 		private Button btnClear;
 		private Label lblInput;
 		private Label lblSteps;
+		private Label lblMode;
 		private Label lblOutput;
+		private MenuStrip menuStrip;
 
 		public mainForm()
 		{
-			engine = new PrssEngine();
+			prssEngine = new PrssEngine();
+			bmsEngine = new BmsEngine();
 			InitializeComponent();
+			SetupMenu();
 			SetupUI();
+		}
+
+		private void SetupMenu()
+		{
+			// 创建菜单栏
+			menuStrip = new MenuStrip();
+
+			// 文件菜单
+			ToolStripMenuItem fileMenu = new ToolStripMenuItem("文件(&F)");
+
+			// 退出选项
+			ToolStripMenuItem exitItem = new ToolStripMenuItem("退出(&X)", null, (s, e) => Application.Exit());
+			exitItem.ShortcutKeys = Keys.Alt | Keys.F4;
+			fileMenu.DropDownItems.Add(exitItem);
+
+			// 帮助菜单
+			ToolStripMenuItem helpMenu = new ToolStripMenuItem("帮助(&H)");
+
+			// 使用说明
+			ToolStripMenuItem helpItem = new ToolStripMenuItem("使用说明(&U)", null, ShowHelp);
+			helpItem.ShortcutKeys = Keys.F1;
+			helpMenu.DropDownItems.Add(helpItem);
+
+			// 分隔线
+			helpMenu.DropDownItems.Add(new ToolStripSeparator());
+
+			// 关于
+			ToolStripMenuItem aboutItem = new ToolStripMenuItem("关于(&A)", null, ShowAbout);
+			helpMenu.DropDownItems.Add(aboutItem);
+
+			// 添加到菜单栏
+			menuStrip.Items.Add(fileMenu);
+			menuStrip.Items.Add(helpMenu);
+
+			// 设置为主菜单
+			this.MainMenuStrip = menuStrip;
+			this.Controls.Add(menuStrip);
 		}
 
 		private void SetupUI()
 		{
-			// 窗体固定 400x400
-			this.Text = "PrSS 展开器";
-			this.Size = new System.Drawing.Size(400, 400);
-			this.MinimumSize = new System.Drawing.Size(400, 400);
-			this.MaximumSize = new System.Drawing.Size(400, 400);
+			this.Text = "PrSS / BMS 展开器";
+			this.Size = new Size(400, 400);
+			this.MinimumSize = new Size(400, 400);
+			this.MaximumSize = new Size(400, 400);
 			this.FormBorderStyle = FormBorderStyle.FixedSingle;
 			this.StartPosition = FormStartPosition.CenterScreen;
 			this.MaximizeBox = false;
 			this.MinimizeBox = true;
 			this.BackColor = SystemColors.Control;
-			this.Font = new Font("宋体", 9f, FontStyle.Regular, GraphicsUnit.Point, 134);
+			this.Font = new Font("宋体", 9f);
 
-			// ===== 布局演算 =====
-			// ClientSize ≈ 384 x 362
-			// 左右边距 12px
+			// 计算菜单栏高度
+			int menuHeight = menuStrip.Height;
+
 			int margin = 12;
 			int left = margin;
-			int top = margin;
+			int top = margin + menuHeight; // 在菜单栏下方开始布局
 			int gap = 6;
 			int ctrlH = 24;
-			int clientW = this.ClientSize.Width;     // ≈384
-			int availW = clientW - margin * 2;       // ≈360
+			int clientW = this.ClientSize.Width;
+			int availW = clientW - margin * 2;
 
-			// ========== 第1行: 序列标签 + 输入框 ==========
+			// 序列
 			lblInput = new Label
 			{
 				Text = "序列:",
 				Location = new Point(left, top + 2),
 				Size = new Size(36, ctrlH),
-				Font = new Font("宋体", 9f),
 				TextAlign = ContentAlignment.MiddleLeft
 			};
-
 			txtInput = new TextBox
 			{
 				Location = new Point(left + 36 + gap, top),
-				Width = availW - 36 - gap,  // 360 - 36 - 6 = 318
+				Width = availW - 36 - gap,
 				Height = ctrlH,
 				Font = new Font("Consolas", 10f),
-				BorderStyle = BorderStyle.Fixed3D,
-				Text = "1, 2, 3, 0"
+				Text = "" // 去掉默认序列
 			};
+			// 设置占位符文本
+			txtInput.Text = "";
+			txtInput.ForeColor = SystemColors.GrayText;
+			txtInput.Text = "请输入序列...";
+			txtInput.GotFocus += TxtInput_GotFocus;
+			txtInput.LostFocus += TxtInput_LostFocus;
+
 			top += ctrlH + 6;
 
-			// ========== 第2行: 步数标签 + 步数输入 ==========
+			// 步数
 			lblSteps = new Label
 			{
 				Text = "步数:",
 				Location = new Point(left, top + 2),
 				Size = new Size(36, ctrlH),
-				Font = new Font("宋体", 9f),
 				TextAlign = ContentAlignment.MiddleLeft
 			};
-
 			nudSteps = new NumericUpDown
 			{
 				Location = new Point(left + 36 + gap, top),
@@ -87,25 +132,39 @@ namespace GoogologyExpander
 				Height = ctrlH,
 				Minimum = 1,
 				Maximum = 50,
-				Value = 5,
-				Font = new Font("宋体", 9f),
-				BorderStyle = BorderStyle.Fixed3D
+				Value = 5
 			};
 			top += ctrlH + 6;
 
-			// ========== 第3行: 展开按钮 + 清空按钮 ==========
-			int btnGap = 8;
-			int btnWidth = (availW - btnGap) / 2;  // (360 - 8) / 2 = 176
+			// 模式
+			lblMode = new Label
+			{
+				Text = "模式:",
+				Location = new Point(left, top + 2),
+				Size = new Size(36, ctrlH),
+				TextAlign = ContentAlignment.MiddleLeft
+			};
+			cmbMode = new ComboBox
+			{
+				Location = new Point(left + 36 + gap, top),
+				Width = 100,
+				Height = ctrlH,
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Font = new Font("宋体", 9f)
+			};
+			cmbMode.Items.AddRange(new object[] { "PrSS", "BMS" });
+			cmbMode.SelectedIndex = 0;
+			top += ctrlH + 6;
 
+			// 按钮
+			int btnGap = 8;
+			int btnWidth = (availW - btnGap) / 2;
 			btnExpand = new Button
 			{
 				Text = "展开 (&E)",
 				Location = new Point(left, top),
 				Width = btnWidth,
 				Height = 30,
-				Font = new Font("宋体", 9f),
-				FlatStyle = FlatStyle.Standard,
-				UseVisualStyleBackColor = true
 			};
 			btnExpand.Click += BtnExpand_Click;
 
@@ -115,25 +174,20 @@ namespace GoogologyExpander
 				Location = new Point(left + btnWidth + btnGap, top),
 				Width = btnWidth,
 				Height = 30,
-				Font = new Font("宋体", 9f),
-				FlatStyle = FlatStyle.Standard,
-				UseVisualStyleBackColor = true
 			};
-			btnClear.Click += (s, e) => txtOutput.Clear();
+			btnClear.Click += (s, e) => { txtOutput.Clear(); txtOutput.Text = ""; };
 			top += 30 + 8;
 
-			// ========== 第4行: 结果标签 ==========
+			// 结果
 			lblOutput = new Label
 			{
 				Text = "结果:",
 				Location = new Point(left, top + 2),
-				AutoSize = true,
-				Font = new Font("宋体", 9f)
+				AutoSize = true
 			};
 			top += 20 + 4;
 
-			// ========== 第5行: 输出框 ==========
-			int remainHeight = this.ClientSize.Height - top - margin;  // ≈362 - 140 - 12 = 210
+			int remainHeight = this.ClientSize.Height - top - margin;
 			txtOutput = new TextBox
 			{
 				Location = new Point(left, top),
@@ -144,14 +198,13 @@ namespace GoogologyExpander
 				ReadOnly = true,
 				Font = new Font("Consolas", 10f),
 				BackColor = SystemColors.Window,
-				BorderStyle = BorderStyle.Fixed3D,
 				WordWrap = true
 			};
 
-			// ========== 添加到窗体 ==========
 			this.Controls.AddRange(new Control[] {
 				lblInput, txtInput,
 				lblSteps, nudSteps,
+				lblMode, cmbMode,
 				btnExpand, btnClear,
 				lblOutput, txtOutput
 			});
@@ -160,11 +213,31 @@ namespace GoogologyExpander
 			this.ActiveControl = txtInput;
 		}
 
+		// 占位符文本处理
+		private void TxtInput_GotFocus(object sender, EventArgs e)
+		{
+			if (txtInput.Text == "请输入序列...")
+			{
+				txtInput.Text = "";
+				txtInput.ForeColor = SystemColors.WindowText;
+			}
+		}
+
+		private void TxtInput_LostFocus(object sender, EventArgs e)
+		{
+			if (string.IsNullOrWhiteSpace(txtInput.Text))
+			{
+				txtInput.Text = "请输入序列...";
+				txtInput.ForeColor = SystemColors.GrayText;
+			}
+		}
+
 		private void BtnExpand_Click(object sender, EventArgs e)
 		{
 			string input = txtInput.Text.Trim();
 
-			if (string.IsNullOrEmpty(input))
+			// 检查是否是占位符文本
+			if (string.IsNullOrEmpty(input) || input == "请输入序列...")
 			{
 				txtOutput.Text = "请输入序列";
 				return;
@@ -173,14 +246,64 @@ namespace GoogologyExpander
 			try
 			{
 				int steps = (int)nudSteps.Value;
-				var sequence = PrssParser.Parse(input);
-				var result = engine.Expand(sequence, steps);
-				txtOutput.Text = result;
+				string mode = cmbMode.SelectedItem.ToString();
+
+				if (mode == "PrSS")
+				{
+					var seq = PrssParser.Parse(input);
+					var result = prssEngine.Expand(seq, steps);
+					txtOutput.Text = result;
+				}
+				else if (mode == "BMS")
+				{
+					var matrix = BmsParser.Parse(input);
+					var result = bmsEngine.Expand(matrix, steps);
+					txtOutput.Text = result;
+				}
 			}
 			catch (Exception ex)
 			{
 				txtOutput.Text = "错误: " + ex.Message;
 			}
+		}
+
+		// 显示使用说明
+		private void ShowHelp(object sender, EventArgs e)
+		{
+			string helpText =
+				"=== PrSS / BMS 展开器 使用说明 ===\n\n" +
+				"【PrSS 模式】\n" +
+				"输入格式：用逗号分隔的数字序列\n" +
+				"示例：1, 2, 3, 0\n" +
+				"说明：原始数列系统 (Primitive Sequence System)\n\n" +
+				"【BMS 模式】\n" +
+				"输入格式：用括号表示的列向量\n" +
+				"示例：(0,0)(1,1)(2,0)\n" +
+				"说明：Bashicu 矩阵系统 (Bashicu Matrix System)\n\n" +
+				"【通用操作】\n" +
+				"• 步数：展开的步数 (1-50)\n" +
+				"• 快捷键：F1 查看帮助，Alt+F4 退出\n" +
+				"• 点击「展开」或按 Enter 执行展开\n\n" +
+				"【BMS 标准形式】\n" +
+				"(1) 首列的所有元素都应为零\n" +
+				"(2) 同列中下面的项不大于上面的项\n" +
+				"(3) 每一个非零项都至多为其父项+1";
+
+			MessageBox.Show(helpText, "使用说明", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+
+		// 显示关于对话框
+		private void ShowAbout(object sender, EventArgs e)
+		{
+			string aboutText =
+				"展开器\n" +
+				"版本0.1 \n\n" +
+				"基于 Bashicu Matrix System 定义 13.4 实现\n"  +
+				"开发者：Cream-CN (Github同名)\n" +
+				"\n\n" +
+				"Copyright(C) Cream-CN 及所有贡献者";
+
+			MessageBox.Show(aboutText, "关于", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 	}
 }
