@@ -1,4 +1,4 @@
-﻿// Form1.cs - 修复菜单栏位置，新增 LPrSS 模式
+﻿// Form1.cs - 支持所有BM版本选择
 using System;
 using System.Windows.Forms;
 using System.Drawing;
@@ -15,19 +15,22 @@ namespace GoogologyExpander
 		private TextBox txtOutput;
 		private NumericUpDown nudSteps;
 		private ComboBox cmbMode;
+		private ComboBox cmbBMVersion;
 		private Button btnExpand;
 		private Button btnClear;
 		private Label lblInput;
 		private Label lblSteps;
 		private Label lblMode;
+		private Label lblBMVersion;
 		private Label lblOutput;
 		private MenuStrip menuStrip;
+		private CheckBox chkDetailed;
 
 		public mainForm()
 		{
 			prssEngine = new PrssEngine();
 			lprssEngine = new LPrssEngine();
-			bmsEngine = new BmsEngine();
+			bmsEngine = new BmsEngine(BMVersion.BM4);
 			InitializeComponent();
 			SetupMenu();
 			SetupUI();
@@ -64,9 +67,9 @@ namespace GoogologyExpander
 		private void SetupUI()
 		{
 			this.Text = "PrSS / LPrSS / BMS 展开器";
-			this.Size = new Size(400, 400);
-			this.MinimumSize = new Size(400, 400);
-			this.MaximumSize = new Size(400, 400);
+			this.Size = new Size(500, 520);
+			this.MinimumSize = new Size(500, 520);
+			this.MaximumSize = new Size(500, 520);
 			this.FormBorderStyle = FormBorderStyle.FixedSingle;
 			this.StartPosition = FormStartPosition.CenterScreen;
 			this.MaximizeBox = false;
@@ -84,6 +87,7 @@ namespace GoogologyExpander
 			int clientW = this.ClientSize.Width;
 			int availW = clientW - margin * 2;
 
+			// 输入标签
 			lblInput = new Label
 			{
 				Text = "序列:",
@@ -107,6 +111,7 @@ namespace GoogologyExpander
 
 			top += ctrlH + 6;
 
+			// 步数
 			lblSteps = new Label
 			{
 				Text = "步数:",
@@ -120,11 +125,12 @@ namespace GoogologyExpander
 				Width = 60,
 				Height = ctrlH,
 				Minimum = 1,
-				Maximum = 50,
+				Maximum = 100,
 				Value = 5
 			};
 			top += ctrlH + 6;
 
+			// 模式
 			lblMode = new Label
 			{
 				Text = "模式:",
@@ -142,8 +148,47 @@ namespace GoogologyExpander
 			};
 			cmbMode.Items.AddRange(new object[] { "PrSS", "LPrSS", "BMS" });
 			cmbMode.SelectedIndex = 0;
+			cmbMode.SelectedIndexChanged += CmbMode_SelectedIndexChanged;
 			top += ctrlH + 6;
 
+			// BM版本 (仅BMS模式可见)
+			lblBMVersion = new Label
+			{
+				Text = "BM版本:",
+				Location = new Point(left, top + 2),
+				Size = new Size(60, ctrlH),
+				TextAlign = ContentAlignment.MiddleLeft,
+				Visible = false
+			};
+			cmbBMVersion = new ComboBox
+			{
+				Location = new Point(left + 60 + gap, top),
+				Width = 150,
+				Height = ctrlH,
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Font = new Font("宋体", 9f),
+				Visible = false
+			};
+			// 填充所有BM版本
+			var versions = BmsEngineFactory.GetAllVersions();
+			foreach (var v in versions)
+			{
+				cmbBMVersion.Items.Add($"{v} - {BmsEngineFactory.GetVersionDescription(v)}");
+			}
+			cmbBMVersion.SelectedIndex = versions.Count - 1; // 默认BM4
+			cmbBMVersion.SelectedIndexChanged += CmbBMVersion_SelectedIndexChanged;
+			top += ctrlH + 6;
+
+			// 详细输出选项
+			chkDetailed = new CheckBox
+			{
+				Text = "显示详细展开过程",
+				Location = new Point(left, top + 2),
+				AutoSize = true
+			};
+			top += 26 + 4;
+
+			// 按钮
 			int btnGap = 8;
 			int btnWidth = (availW - btnGap) / 2;
 			btnExpand = new Button
@@ -165,6 +210,7 @@ namespace GoogologyExpander
 			btnClear.Click += (s, e) => { txtOutput.Clear(); txtOutput.Text = ""; };
 			top += 30 + 8;
 
+			// 输出标签
 			lblOutput = new Label
 			{
 				Text = "结果:",
@@ -173,6 +219,7 @@ namespace GoogologyExpander
 			};
 			top += 20 + 4;
 
+			// 输出文本框
 			int remainHeight = this.ClientSize.Height - top - margin;
 			txtOutput = new TextBox
 			{
@@ -191,12 +238,31 @@ namespace GoogologyExpander
 				lblInput, txtInput,
 				lblSteps, nudSteps,
 				lblMode, cmbMode,
+				lblBMVersion, cmbBMVersion,
+				chkDetailed,
 				btnExpand, btnClear,
 				lblOutput, txtOutput
 			});
 
 			this.AcceptButton = btnExpand;
 			this.ActiveControl = txtInput;
+		}
+
+		private void CmbMode_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			bool isBMS = cmbMode.SelectedItem?.ToString() == "BMS";
+			lblBMVersion.Visible = isBMS;
+			cmbBMVersion.Visible = isBMS;
+		}
+
+		private void CmbBMVersion_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			if (cmbBMVersion.SelectedIndex >= 0)
+			{
+				var versions = BmsEngineFactory.GetAllVersions();
+				var version = versions[cmbBMVersion.SelectedIndex];
+				bmsEngine.SetVersion(version);
+			}
 		}
 
 		private void TxtInput_GotFocus(object sender, EventArgs e)
@@ -231,24 +297,82 @@ namespace GoogologyExpander
 			{
 				int steps = (int)nudSteps.Value;
 				string mode = cmbMode.SelectedItem.ToString();
+				bool detailed = chkDetailed.Checked;
+
+				txtOutput.Clear();
 
 				if (mode == "PrSS")
 				{
 					var seq = PrssParser.Parse(input);
-					var result = prssEngine.Expand(seq, steps);
-					txtOutput.Text = result;
+
+					if (detailed)
+					{
+						var history = prssEngine.ExpandWithHistory(seq, steps);
+						txtOutput.Text = "PrSS 展开过程:\n";
+						for (int i = 0; i < history.Count; i++)
+						{
+							txtOutput.Text += $"步骤 {i}: {PrssParser.FormatPlain(history[i])}\n";
+						}
+						txtOutput.Text += $"\n最终结果: {PrssParser.FormatPlain(history.Last())}";
+					}
+					else
+					{
+						var result = prssEngine.Expand(seq, steps);
+						txtOutput.Text = $"展开结果: {result}";
+					}
 				}
 				else if (mode == "LPrSS")
 				{
 					var seq = LPrssParser.Parse(input);
-					var result = lprssEngine.Expand(seq, steps);
-					txtOutput.Text = result;
+
+					if (detailed)
+					{
+						var history = lprssEngine.ExpandWithHistory(seq, steps);
+						txtOutput.Text = "LPrSS 展开过程:\n";
+						for (int i = 0; i < history.Count; i++)
+						{
+							txtOutput.Text += $"步骤 {i}: {LPrssParser.FormatPlain(history[i])}\n";
+						}
+						txtOutput.Text += $"\n最终结果: {LPrssParser.FormatPlain(history.Last())}";
+					}
+					else
+					{
+						var result = lprssEngine.Expand(seq, steps);
+						txtOutput.Text = $"展开结果: {result}";
+					}
 				}
 				else if (mode == "BMS")
 				{
 					var matrix = BmsParser.Parse(input);
-					var result = bmsEngine.Expand(matrix, steps);
-					txtOutput.Text = result;
+
+					// 更新版本
+					if (cmbBMVersion.SelectedIndex >= 0)
+					{
+						var versions = BmsEngineFactory.GetAllVersions();
+						var version = versions[cmbBMVersion.SelectedIndex];
+						bmsEngine.SetVersion(version);
+					}
+
+					if (detailed)
+					{
+						var result = bmsEngine.ExpandWithDetails(matrix, steps);
+						txtOutput.Text = result.GetDetailedReport();
+					}
+					else
+					{
+						var result = bmsEngine.Expand(matrix, steps);
+						txtOutput.Text = $"展开结果: {result}";
+
+						// 额外显示矩阵信息
+						if (!bmsEngine.IsEmpty(matrix))
+						{
+							txtOutput.Text += $"\n\n矩阵信息:";
+							txtOutput.Text += $"\n  行数: {bmsEngine.GetRowCount(matrix)}";
+							txtOutput.Text += $"\n  列数: {bmsEngine.GetColCount(matrix)}";
+							txtOutput.Text += $"\n  标准形式: {(bmsEngine.IsStandard(matrix) ? "是" : "否")}";
+							txtOutput.Text += $"\n  当前版本: {bmsEngine.GetVersion()}";
+						}
+					}
 				}
 			}
 			catch (Exception ex)
@@ -260,7 +384,7 @@ namespace GoogologyExpander
 		private void ShowHelp(object sender, EventArgs e)
 		{
 			string helpText =
-				"=== PrSS / LPrSS / BMS 展开器 使用说明 ===\n\n" +
+				"使用说明\n\n" +
 				"【PrSS 模式】\n" +
 				"输入格式：用逗号分隔的数字序列\n" +
 				"示例：1, 2, 3, 0\n" +
@@ -276,9 +400,13 @@ namespace GoogologyExpander
 				"【BMS 模式】\n" +
 				"输入格式：用括号表示的列向量\n" +
 				"示例：(0,0)(1,1)(2,0)\n" +
-				"说明：Bashicu 矩阵系统 (Bashicu Matrix System)\n\n" +
+				"     (0,0,0)(1,1,1)(2,2,0)\n" +
+				"说明：Bashicu 矩阵系统 (Bashicu Matrix System)\n" +
+				"支持版本：BM1, BM2, BM2.1, BM2.2, BM2.3, BM3, BM3.1, BM3.2, BM3.3, BM4\n" +
+				"推荐使用 BM4 (最新版本)\n\n" +
 				"【通用操作】\n" +
-				"• 步数：展开的步数 (1-50)\n" +
+				"• 步数：展开的步数 (1-100)\n" +
+				"• 详细展开：显示每一步的展开过程\n" +
 				"• 快捷键：F1 查看帮助，Alt+F4 退出\n" +
 				"• 点击「展开」或按 Enter 执行展开";
 
@@ -289,10 +417,15 @@ namespace GoogologyExpander
 		{
 			string aboutText =
 				"展开器\n" +
-				"版本0.2\n\n" +
+				"版本 0.4\n\n" +
 				"支持: PrSS, LPrSS, BMS\n" +
 				"LPrSS 基于定义 14.1 和 14.2 实现\n" +
-				"BMS 基于 Bashicu Matrix System 定义 13.4 实现\n" +
+				"BMS 支持所有版本：\n" +
+				"  BM1 (2014), BM2 (2016)\n" +
+				"  BM2.1, BM2.2, BM2.3 (2018, koteitan)\n" +
+				"  BM3 (2018), BM3.1, BM3.2 (2018, Nish)\n" +
+				"  BM3.3 (2019, rpakr/Ecl1psed)\n" +
+				"  BM4 (2018, Bashicu) - 默认\n" +
 				"开发者：Cream-CN (Github同名)\n" +
 				"\n\n" +
 				"Copyright(C) Cream-CN 及所有贡献者";
