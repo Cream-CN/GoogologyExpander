@@ -1,4 +1,4 @@
-﻿// Form1.cs - 完全手动创建UI，不依赖Form1.Designer.cs
+﻿// Form1.cs - 支持所有BM版本选择
 using System;
 using System.Windows.Forms;
 using System.Drawing;
@@ -28,23 +28,10 @@ namespace GoogologyExpander
 
 		public mainForm()
 		{
-			// 初始化引擎
 			prssEngine = new PrssEngine();
 			lprssEngine = new LPrssEngine();
 			bmsEngine = new BmsEngine(BMVersion.BM4);
-
-			// 设置窗体属性
-			this.Text = "PrSS / LPrSS / BMS 展开器";
-			this.Size = new Size(500, 520);
-			this.MinimumSize = new Size(500, 520);
-			this.MaximumSize = new Size(500, 520);
-			this.FormBorderStyle = FormBorderStyle.FixedSingle;
-			this.StartPosition = FormStartPosition.CenterScreen;
-			this.MaximizeBox = false;
-			this.MinimizeBox = true;
-			this.BackColor = SystemColors.Control;
-			this.Font = new Font("宋体", 9f);
-
+			InitializeComponent();
 			SetupMenu();
 			SetupUI();
 		}
@@ -79,6 +66,17 @@ namespace GoogologyExpander
 
 		private void SetupUI()
 		{
+			this.Text = "PrSS / LPrSS / BMS 展开器";
+			this.Size = new Size(500, 520);
+			this.MinimumSize = new Size(500, 520);
+			this.MaximumSize = new Size(500, 520);
+			this.FormBorderStyle = FormBorderStyle.FixedSingle;
+			this.StartPosition = FormStartPosition.CenterScreen;
+			this.MaximizeBox = false;
+			this.MinimizeBox = true;
+			this.BackColor = SystemColors.Control;
+			this.Font = new Font("宋体", 9f);
+
 			int menuHeight = menuStrip.Height;
 
 			int margin = 12;
@@ -103,9 +101,11 @@ namespace GoogologyExpander
 				Width = availW - 36 - gap,
 				Height = ctrlH,
 				Font = new Font("Consolas", 10f),
-				ForeColor = SystemColors.GrayText,
-				Text = "请输入序列..."
+				Text = ""
 			};
+			txtInput.Text = "";
+			txtInput.ForeColor = SystemColors.GrayText;
+			txtInput.Text = "请输入序列...";
 			txtInput.GotFocus += TxtInput_GotFocus;
 			txtInput.LostFocus += TxtInput_LostFocus;
 
@@ -163,7 +163,7 @@ namespace GoogologyExpander
 			cmbBMVersion = new ComboBox
 			{
 				Location = new Point(left + 60 + gap, top),
-				Width = 180,
+				Width = 150,
 				Height = ctrlH,
 				DropDownStyle = ComboBoxStyle.DropDownList,
 				Font = new Font("宋体", 9f),
@@ -416,7 +416,7 @@ namespace GoogologyExpander
 		private void ShowAbout(object sender, EventArgs e)
 		{
 			string aboutText =
-				"GoogologyExpander\n" +
+				"展开器\n" +
 				"版本 0.4\n\n" +
 				"支持: PrSS, LPrSS, BMS\n" +
 				"LPrSS 基于定义 14.1 和 14.2 实现\n" +
@@ -426,7 +426,8 @@ namespace GoogologyExpander
 				"  BM3 (2018), BM3.1, BM3.2 (2018, Nish)\n" +
 				"  BM3.3 (2019, rpakr/Ecl1psed)\n" +
 				"  BM4 (2018, Bashicu) - 默认\n" +
-				"开发者：Cream-CN (Github同名)\n\n" +
+				"开发者：Cream-CN (Github同名)\n" +
+				"\n\n" +
 				"Copyright(C) Cream-CN 及所有贡献者";
 
 			MessageBox.Show(aboutText, "关于", MessageBoxButtons.OK, MessageBoxIcon.Information);
