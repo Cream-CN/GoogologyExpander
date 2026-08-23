@@ -15,13 +15,11 @@ namespace GoogologyExpander
 		private TextBox txtOutput;
 		private NumericUpDown nudSteps;
 		private ComboBox cmbMode;
-		private ComboBox cmbBMVersion;
 		private Button btnExpand;
 		private Button btnClear;
 		private Label lblInput;
 		private Label lblSteps;
 		private Label lblMode;
-		private Label lblBMVersion;
 		private Label lblOutput;
 		private MenuStrip menuStrip;
 		private CheckBox chkDetailed;
@@ -31,7 +29,7 @@ namespace GoogologyExpander
 			// 初始化引擎
 			prssEngine = new PrssEngine();
 			lprssEngine = new LPrssEngine();
-			bmsEngine = new BmsEngine(BMVersion.BM4);
+			bmsEngine = new BmsEngine();
 
 			// 设置窗体属性
 			this.Text = "PrSS / LPrSS / BMS 展开器";
@@ -148,35 +146,6 @@ namespace GoogologyExpander
 			};
 			cmbMode.Items.AddRange(new object[] { "PrSS", "LPrSS", "BMS" });
 			cmbMode.SelectedIndex = 0;
-			cmbMode.SelectedIndexChanged += CmbMode_SelectedIndexChanged;
-			top += ctrlH + 6;
-
-			// BM版本 (仅BMS模式可见)
-			lblBMVersion = new Label
-			{
-				Text = "BM版本:",
-				Location = new Point(left, top + 2),
-				Size = new Size(60, ctrlH),
-				TextAlign = ContentAlignment.MiddleLeft,
-				Visible = false
-			};
-			cmbBMVersion = new ComboBox
-			{
-				Location = new Point(left + 60 + gap, top),
-				Width = 180,
-				Height = ctrlH,
-				DropDownStyle = ComboBoxStyle.DropDownList,
-				Font = new Font("宋体", 9f),
-				Visible = false
-			};
-			// 填充所有BM版本
-			var versions = BmsEngineFactory.GetAllVersions();
-			foreach (var v in versions)
-			{
-				cmbBMVersion.Items.Add($"{v} - {BmsEngineFactory.GetVersionDescription(v)}");
-			}
-			cmbBMVersion.SelectedIndex = versions.Count - 1; // 默认BM4
-			cmbBMVersion.SelectedIndexChanged += CmbBMVersion_SelectedIndexChanged;
 			top += ctrlH + 6;
 
 			// 详细输出选项
@@ -238,7 +207,6 @@ namespace GoogologyExpander
 				lblInput, txtInput,
 				lblSteps, nudSteps,
 				lblMode, cmbMode,
-				lblBMVersion, cmbBMVersion,
 				chkDetailed,
 				btnExpand, btnClear,
 				lblOutput, txtOutput
@@ -246,23 +214,6 @@ namespace GoogologyExpander
 
 			this.AcceptButton = btnExpand;
 			this.ActiveControl = txtInput;
-		}
-
-		private void CmbMode_SelectedIndexChanged(object sender, EventArgs e)
-		{
-			bool isBMS = cmbMode.SelectedItem?.ToString() == "BMS";
-			lblBMVersion.Visible = isBMS;
-			cmbBMVersion.Visible = isBMS;
-		}
-
-		private void CmbBMVersion_SelectedIndexChanged(object sender, EventArgs e)
-		{
-			if (cmbBMVersion.SelectedIndex >= 0)
-			{
-				var versions = BmsEngineFactory.GetAllVersions();
-				var version = versions[cmbBMVersion.SelectedIndex];
-				bmsEngine.SetVersion(version);
-			}
 		}
 
 		private void TxtInput_GotFocus(object sender, EventArgs e)
@@ -345,14 +296,6 @@ namespace GoogologyExpander
 				{
 					var matrix = BmsParser.Parse(input);
 
-					// 更新版本
-					if (cmbBMVersion.SelectedIndex >= 0)
-					{
-						var versions = BmsEngineFactory.GetAllVersions();
-						var version = versions[cmbBMVersion.SelectedIndex];
-						bmsEngine.SetVersion(version);
-					}
-
 					if (detailed)
 					{
 						var result = bmsEngine.ExpandWithDetails(matrix, steps);
@@ -363,7 +306,6 @@ namespace GoogologyExpander
 						var result = bmsEngine.Expand(matrix, steps);
 						txtOutput.Text = $"展开结果: {result}";
 
-						// 额外显示矩阵信息
 						if (!bmsEngine.IsEmpty(matrix))
 						{
 							txtOutput.Text += $"\n\n矩阵信息:";
@@ -402,8 +344,7 @@ namespace GoogologyExpander
 				"示例：(0,0)(1,1)(2,0)\n" +
 				"     (0,0,0)(1,1,1)(2,2,0)\n" +
 				"说明：Bashicu 矩阵系统 (Bashicu Matrix System)\n" +
-				"支持版本：BM1, BM2, BM2.1, BM2.2, BM2.3, BM3, BM3.1, BM3.2, BM3.3, BM4\n" +
-				"推荐使用 BM4 (最新版本)\n\n" +
+				"使用版本：BM4 (Bashicu 版本4, 2018)\n\n" +
 				"【通用操作】\n" +
 				"• 步数：展开的步数 (1-100)\n" +
 				"• 详细展开：显示每一步的展开过程\n" +
@@ -418,14 +359,9 @@ namespace GoogologyExpander
 			string aboutText =
 				"GoogologyExpander\n" +
 				"版本 0.4\n\n" +
-				"支持: PrSS, LPrSS, BMS\n" +
+				"支持: PrSS, LPrSS, BMS (BM4)\n" +
 				"LPrSS 基于定义 14.1 和 14.2 实现\n" +
-				"BMS 支持所有版本：\n" +
-				"  BM1 (2014), BM2 (2016)\n" +
-				"  BM2.1, BM2.2, BM2.3 (2018, koteitan)\n" +
-				"  BM3 (2018), BM3.1, BM3.2 (2018, Nish)\n" +
-				"  BM3.3 (2019, rpakr/Ecl1psed)\n" +
-				"  BM4 (2018, Bashicu) - 默认\n" +
+				"BMS 使用 BM4 (Bashicu 版本4, 2018)\n" +
 				"开发者：Cream-CN (Github同名)\n\n" +
 				"Copyright(C) Cream-CN 及所有贡献者";
 
