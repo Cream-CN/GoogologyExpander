@@ -1,41 +1,37 @@
-﻿// Form1.cs - 完全手动创建UI，不依赖Form1.Designer.cs
+﻿// Form1.cs - 支持 BMS (BM4) 展开器
 using System;
 using System.Windows.Forms;
 using System.Drawing;
 using System.Linq;
+using System.Text;
 
 namespace GoogologyExpander
 {
 	public partial class mainForm : Form
 	{
-		private PrssEngine prssEngine;
-		private LPrssEngine lprssEngine;
 		private BmsEngine bmsEngine;
 		private TextBox txtInput;
 		private TextBox txtOutput;
 		private NumericUpDown nudSteps;
-		private ComboBox cmbMode;
 		private Button btnExpand;
 		private Button btnClear;
 		private Label lblInput;
 		private Label lblSteps;
-		private Label lblMode;
 		private Label lblOutput;
 		private MenuStrip menuStrip;
 		private CheckBox chkDetailed;
+		private Label lblInfo;
 
 		public mainForm()
 		{
 			// 初始化引擎
-			prssEngine = new PrssEngine();
-			lprssEngine = new LPrssEngine();
 			bmsEngine = new BmsEngine();
 
 			// 设置窗体属性
-			this.Text = "PrSS / LPrSS / BMS 展开器";
-			this.Size = new Size(500, 520);
-			this.MinimumSize = new Size(500, 520);
-			this.MaximumSize = new Size(500, 520);
+			this.Text = "BMS (BM4) 展开器";
+			this.Size = new Size(700, 650);
+			this.MinimumSize = new Size(650, 550);
+			this.MaximumSize = new Size(850, 750);
 			this.FormBorderStyle = FormBorderStyle.FixedSingle;
 			this.StartPosition = FormStartPosition.CenterScreen;
 			this.MaximizeBox = false;
@@ -90,19 +86,19 @@ namespace GoogologyExpander
 			// 输入标签
 			lblInput = new Label
 			{
-				Text = "序列:",
+				Text = "矩阵:",
 				Location = new Point(left, top + 2),
-				Size = new Size(36, ctrlH),
+				Size = new Size(40, ctrlH),
 				TextAlign = ContentAlignment.MiddleLeft
 			};
 			txtInput = new TextBox
 			{
-				Location = new Point(left + 36 + gap, top),
-				Width = availW - 36 - gap,
+				Location = new Point(left + 40 + gap, top),
+				Width = availW - 40 - gap,
 				Height = ctrlH,
 				Font = new Font("Consolas", 10f),
 				ForeColor = SystemColors.GrayText,
-				Text = "请输入序列..."
+				Text = "请输入矩阵，如 (0,0)(1,1)(2,0)..."
 			};
 			txtInput.GotFocus += TxtInput_GotFocus;
 			txtInput.LostFocus += TxtInput_LostFocus;
@@ -114,38 +110,18 @@ namespace GoogologyExpander
 			{
 				Text = "步数:",
 				Location = new Point(left, top + 2),
-				Size = new Size(36, ctrlH),
+				Size = new Size(40, ctrlH),
 				TextAlign = ContentAlignment.MiddleLeft
 			};
 			nudSteps = new NumericUpDown
 			{
-				Location = new Point(left + 36 + gap, top),
+				Location = new Point(left + 40 + gap, top),
 				Width = 60,
 				Height = ctrlH,
 				Minimum = 1,
 				Maximum = 100,
 				Value = 5
 			};
-			top += ctrlH + 6;
-
-			// 模式
-			lblMode = new Label
-			{
-				Text = "模式:",
-				Location = new Point(left, top + 2),
-				Size = new Size(36, ctrlH),
-				TextAlign = ContentAlignment.MiddleLeft
-			};
-			cmbMode = new ComboBox
-			{
-				Location = new Point(left + 36 + gap, top),
-				Width = 100,
-				Height = ctrlH,
-				DropDownStyle = ComboBoxStyle.DropDownList,
-				Font = new Font("宋体", 9f)
-			};
-			cmbMode.Items.AddRange(new object[] { "PrSS", "LPrSS", "BMS" });
-			cmbMode.SelectedIndex = 0;
 			top += ctrlH + 6;
 
 			// 详细输出选项
@@ -179,6 +155,16 @@ namespace GoogologyExpander
 			btnClear.Click += (s, e) => { txtOutput.Clear(); txtOutput.Text = ""; };
 			top += 30 + 8;
 
+			// 信息标签
+			lblInfo = new Label
+			{
+				Text = "提示: 按 Enter 快速展开",
+				Location = new Point(left, top + 4),
+				AutoSize = true,
+				ForeColor = SystemColors.GrayText
+			};
+			top += 24 + 4;
+
 			// 输出标签
 			lblOutput = new Label
 			{
@@ -206,9 +192,9 @@ namespace GoogologyExpander
 			this.Controls.AddRange(new Control[] {
 				lblInput, txtInput,
 				lblSteps, nudSteps,
-				lblMode, cmbMode,
 				chkDetailed,
 				btnExpand, btnClear,
+				lblInfo,
 				lblOutput, txtOutput
 			});
 
@@ -218,7 +204,7 @@ namespace GoogologyExpander
 
 		private void TxtInput_GotFocus(object sender, EventArgs e)
 		{
-			if (txtInput.Text == "请输入序列...")
+			if (txtInput.Text == "请输入矩阵，如 (0,0)(1,1)(2,0)...")
 			{
 				txtInput.Text = "";
 				txtInput.ForeColor = SystemColors.WindowText;
@@ -229,7 +215,7 @@ namespace GoogologyExpander
 		{
 			if (string.IsNullOrWhiteSpace(txtInput.Text))
 			{
-				txtInput.Text = "请输入序列...";
+				txtInput.Text = "请输入矩阵，如 (0,0)(1,1)(2,0)...";
 				txtInput.ForeColor = SystemColors.GrayText;
 			}
 		}
@@ -238,117 +224,95 @@ namespace GoogologyExpander
 		{
 			string input = txtInput.Text.Trim();
 
-			if (string.IsNullOrEmpty(input) || input == "请输入序列...")
+			if (string.IsNullOrEmpty(input) || input == "请输入矩阵，如 (0,0)(1,1)(2,0)...")
 			{
-				txtOutput.Text = "请输入序列";
+				txtOutput.Text = "请输入矩阵";
 				return;
 			}
 
 			try
 			{
 				int steps = (int)nudSteps.Value;
-				string mode = cmbMode.SelectedItem.ToString();
 				bool detailed = chkDetailed.Checked;
 
 				txtOutput.Clear();
 
-				if (mode == "PrSS")
-				{
-					var seq = PrssParser.Parse(input);
+				// 解析矩阵
+				int[][] matrix = BmsParser.Parse(input);
 
-					if (detailed)
-					{
-						var history = prssEngine.ExpandWithHistory(seq, steps);
-						txtOutput.Text = "PrSS 展开过程:\n";
-						for (int i = 0; i < history.Count; i++)
-						{
-							txtOutput.Text += $"步骤 {i}: {PrssParser.FormatPlain(history[i])}\n";
-						}
-						txtOutput.Text += $"\n最终结果: {PrssParser.FormatPlain(history.Last())}";
-					}
-					else
-					{
-						var result = prssEngine.Expand(seq, steps);
-						txtOutput.Text = $"展开结果: {result}";
-					}
+				if (matrix == null || matrix.Length == 0)
+				{
+					txtOutput.Text = "请输入有效的矩阵\n格式示例: (0,0)(1,1)(2,0)";
+					return;
 				}
-				else if (mode == "LPrSS")
-				{
-					var seq = LPrssParser.Parse(input);
 
-					if (detailed)
+				if (detailed)
+				{
+					var result = bmsEngine.ExpandWithDetails(matrix, steps);
+
+					var sb = new StringBuilder();
+					sb.AppendLine($"BMS (BM4) 展开过程 (步数: {steps}):");
+					sb.AppendLine("=".PadRight(60, '='));
+					sb.AppendLine();
+
+					foreach (var detail in result.Details)
 					{
-						var history = lprssEngine.ExpandWithHistory(seq, steps);
-						txtOutput.Text = "LPrSS 展开过程:\n";
-						for (int i = 0; i < history.Count; i++)
-						{
-							txtOutput.Text += $"步骤 {i}: {LPrssParser.FormatPlain(history[i])}\n";
-						}
-						txtOutput.Text += $"\n最终结果: {LPrssParser.FormatPlain(history.Last())}";
+						sb.AppendLine(detail);
 					}
-					else
-					{
-						var result = lprssEngine.Expand(seq, steps);
-						txtOutput.Text = $"展开结果: {result}";
-					}
+
+					sb.AppendLine();
+					sb.AppendLine("=".PadRight(60, '='));
+					sb.AppendLine($"最终结果: {BmsParser.Format(result.Final)}");
+
+					txtOutput.Text = sb.ToString();
 				}
-				else if (mode == "BMS")
+				else
 				{
-					var matrix = BmsParser.Parse(input);
+					int[][] result = bmsEngine.Expand(matrix, steps);
 
-					if (detailed)
-					{
-						var result = bmsEngine.ExpandWithDetails(matrix, steps);
-						txtOutput.Text = result.GetDetailedReport();
-					}
-					else
-					{
-						var result = bmsEngine.Expand(matrix, steps);
-						txtOutput.Text = $"展开结果: {result}";
+					var sb = new StringBuilder();
+					sb.AppendLine($"展开结果 (步数: {steps}):");
+					sb.AppendLine(BmsParser.Format(result));
 
-						if (!bmsEngine.IsEmpty(matrix))
-						{
-							txtOutput.Text += $"\n\n矩阵信息:";
-							txtOutput.Text += $"\n  行数: {bmsEngine.GetRowCount(matrix)}";
-							txtOutput.Text += $"\n  列数: {bmsEngine.GetColCount(matrix)}";
-							txtOutput.Text += $"\n  标准形式: {(bmsEngine.IsStandard(matrix) ? "是" : "否")}";
-							txtOutput.Text += $"\n  当前版本: {bmsEngine.GetVersion()}";
-						}
+					if (!bmsEngine.IsEmpty(matrix))
+					{
+						sb.AppendLine();
+						sb.AppendLine("矩阵信息:");
+						sb.AppendLine($"  行数: {bmsEngine.GetRowCount(matrix)}");
+						sb.AppendLine($"  列数: {bmsEngine.GetColCount(matrix)}");
+						sb.AppendLine($"  标准形式: {(bmsEngine.IsStandard(matrix) ? "是" : "否")}");
+						sb.AppendLine($"  当前版本: {bmsEngine.GetVersion()}");
 					}
+
+					txtOutput.Text = sb.ToString();
 				}
 			}
 			catch (Exception ex)
 			{
-				txtOutput.Text = "错误: " + ex.Message;
+				txtOutput.Text = "错误: " + ex.Message + "\n\n" + ex.StackTrace;
 			}
 		}
 
 		private void ShowHelp(object sender, EventArgs e)
 		{
 			string helpText =
-				"使用说明\n\n" +
-				"【PrSS 模式】\n" +
-				"输入格式：用逗号分隔的数字序列\n" +
-				"示例：1, 2, 3, 0\n" +
-				"说明：原始数列系统 (Primitive Sequence System)\n\n" +
-				"【LPrSS 模式】\n" +
-				"输入格式：用逗号分隔的数字序列\n" +
-				"示例：1, 2, 3, 4\n" +
-				"说明：极限原始数列系统 (Limit Primitive Sequence System)\n" +
-				"展开规则：\n" +
-				"  (1) ( ) = 0\n" +
-				"  (2) (#, 1) = (#) + 1\n" +
-				"  (3) 否则坏部复制，每复制一次各项加上阶差减一\n\n" +
-				"【BMS 模式】\n" +
-				"输入格式：用括号表示的列向量\n" +
-				"示例：(0,0)(1,1)(2,0)\n" +
-				"     (0,0,0)(1,1,1)(2,2,0)\n" +
-				"说明：Bashicu 矩阵系统 (Bashicu Matrix System)\n" +
-				"使用版本：BM4 (Bashicu 版本4, 2018)\n\n" +
-				"【通用操作】\n" +
-				"• 步数：展开的步数 (1-100)\n" +
-				"• 详细展开：显示每一步的展开过程\n" +
-				"• 快捷键：F1 查看帮助，Alt+F4 退出\n" +
+				"BMS (BM4) 使用说明\n\n" +
+				"【输入格式】\n" +
+				"使用括号表示列向量，每列用括号括起来，列之间直接连接\n" +
+				"示例:\n" +
+				"  (0,0)(1,1)(2,0) - 3列2行矩阵\n" +
+				"  (0,0,0)(1,1,1)(2,2,0)(3,3,0) - 4列3行矩阵\n" +
+				"  (0)(1)(2) - 3列1行矩阵 (PrSS)\n\n" +
+				"【展开规则 (BM4)】\n" +
+				"• 父项查找：第一行找左边第一个小于当前值\n" +
+				"• 其他行找左边第一个小于当前值且上方是上方元素的祖先\n" +
+				"• 坏根：最后一列从下往上第一个非零元素的父项所在列\n" +
+				"• 阶差向量：末列减坏根列，最后一项始终为零\n" +
+				"• 坏部复制时，非祖先项保持不变\n\n" +
+				"【操作说明】\n" +
+				"• 步数: 展开的步数 (1-100)\n" +
+				"• 详细展开: 显示每一步的详细计算过程\n" +
+				"• 快捷键: F1 查看帮助，Alt+F4 退出\n" +
 				"• 点击「展开」或按 Enter 执行展开";
 
 			MessageBox.Show(helpText, "使用说明", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -357,12 +321,17 @@ namespace GoogologyExpander
 		private void ShowAbout(object sender, EventArgs e)
 		{
 			string aboutText =
-				"GoogologyExpander\n" +
-				"版本 0.4\n\n" +
-				"支持: PrSS, LPrSS, BMS (BM4)\n" +
-				"LPrSS 基于定义 14.1 和 14.2 实现\n" +
-				"BMS 使用 BM4 (Bashicu 版本4, 2018)\n" +
-				"开发者：Cream-CN (Github同名)\n\n" +
+				"BMS (BM4) 展开器\n" +
+				"版本 1.0\n\n" +
+				"支持的系統:\n" +
+				"  • BMS (BM4) - Bashicu Matrix System 版本4 (2018)\n\n" +
+				"实现特点:\n" +
+				"  • 严格的父项查找 (左向遍历)\n" +
+				"  • 完整的祖先链 (while 循环)\n" +
+				"  • 精确的坏根查找\n" +
+				"  • 正确的阶差向量计算\n" +
+				"  • 非祖先项保持不变\n\n" +
+				"开发者: Cream-CN (Github同名)\n\n" +
 				"Copyright(C) Cream-CN 及所有贡献者";
 
 			MessageBox.Show(aboutText, "关于", MessageBoxButtons.OK, MessageBoxIcon.Information);

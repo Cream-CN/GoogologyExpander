@@ -8,7 +8,10 @@
 	</PropertyGroup>
 	<ItemGroup>
 	  <Compile Remove="old\**" />
+	  <Compile Remove="Sequence\**" />
 	  <EmbeddedResource Remove="old\**" />
+	  <EmbeddedResource Remove="Sequence\**" />
 	  <None Remove="old\**" />
+	  <None Remove="Sequence\**" />
 	</ItemGroup>
 </Project>
