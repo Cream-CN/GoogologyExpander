@@ -44,12 +44,12 @@ namespace GoogologyExpander
 
 		public Mountain Clone()
 		{
-			return MountainUtils.CloneMountain(this);
+			return WY.CloneMountain(this);
 		}
 	}
 
 	// ---------- 辅助函数（完全对应原JS） ----------
-	public static class MountainUtils
+	public static class WY
 	{
 		public static List<int> AddVector(List<int> s, List<int> t)
 		{
@@ -1032,10 +1032,25 @@ namespace GoogologyExpander
 		}
 
 		// ---------- 对外接口 ExpandWY ----------
-		public static int[] ExpandWY(int[] input)
+		public static int[] ExpandWY(int[] sequence)
 		{
-			string seq = string.Join(",", input);
-			string resultStr = (string)Expand(seq, 1, false, true);
+			if (sequence == null)
+				throw new ArgumentNullException(nameof(sequence));
+
+			if (sequence.Length == 0)
+				return Array.Empty<int>();
+
+			string seq = string.Join(",", sequence);
+			string resultStr;
+			try
+			{
+			resultStr = (string)Expand(seq, 1, false, true);
+			}
+			catch (Exception ex) when (ex is ArgumentOutOfRangeException || ex is InvalidOperationException || ex is IndexOutOfRangeException)
+			{
+				// 当前结构无法展开，回退为原序列
+				return (int[])sequence.Clone();
+			}
 			if (string.IsNullOrEmpty(resultStr)) return new int[0];
 			var parts = resultStr.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 			int[] result = new int[parts.Length];

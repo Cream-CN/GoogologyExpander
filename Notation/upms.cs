@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace GoogologyExpander
 {
-	public static class UPMSExpander
+	public static class UPMS
 	{
 		private const bool STRICT_BASE_COLUMN = true;
 
@@ -422,9 +422,27 @@ namespace GoogologyExpander
 		#endregion
 
 		/// <summary>
-		/// 核心展开函数：对UPMS矩阵执行一次展开
+		/// 对 UPMS 矩阵进行展开（二维统一接口，原地修改矩阵）。
 		/// </summary>
-		public static List<List<int>> ExpandUPMS(List<List<int>> matrix)
+		public static void ExpandUPMS(List<List<int>> matrix, int n)
+		{
+			if (matrix == null)
+				throw new ArgumentNullException(nameof(matrix));
+
+			if (matrix.Count == 0) return;
+
+			for (int step = 0; step < n; step++)
+			{
+				var expanded = CoreExpandOne(matrix);
+				matrix.Clear();
+				matrix.AddRange(expanded);
+			}
+		}
+
+		/// <summary>
+		/// 核心展开：对 UPMS 矩阵执行一次展开，返回新矩阵（不修改输入）。
+		/// </summary>
+		private static List<List<int>> CoreExpandOne(List<List<int>> matrix)
 		{
 			if (!IsLegalUPMSMatrix(matrix)) return new List<List<int>>();
 

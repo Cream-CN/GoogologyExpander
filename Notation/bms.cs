@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 namespace GoogologyExpander
 {
-	public static class BmsCore
+	public static class BMS
 	{
 		/// <summary>
 		/// 对BMS矩阵进行展开操作
@@ -12,6 +12,10 @@ namespace GoogologyExpander
 		/// <param name="n">展开步数</param>
 		public static void ExpandBMS(List<List<double>> matrix, int n)
 		{
+			// 空矩阵检查
+			if (matrix == null)
+				throw new ArgumentNullException(nameof(matrix));
+
 			// 空矩阵检查
 			if (matrix.Count == 0) return;
 

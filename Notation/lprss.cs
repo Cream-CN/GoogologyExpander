@@ -14,7 +14,7 @@ namespace GoogologyExpander
 
 			// 规则(1)：空序列
 			if (sequence.Length == 0)
-				return [];
+				return Array.Empty<int>();
 
 			int last = sequence[^1];
 

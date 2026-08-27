@@ -28,12 +28,12 @@ namespace GoogologyExpander
 		public SeqItem Parent { get; set; }
 	}
 
-	public class Expander
+	public static class EY
 	{
 		private static Regex lineBreakRegex = new Regex(@"\r?\n");
 		private static Regex itemSeparatorRegex = new Regex(@"[\t ,]");
 
-		public string ExpandXY(string input, string inputn, string inputd, bool inputm)
+		public static string ExpandXY(string input, string inputn, string inputd, bool inputm)
 		{
 			string mt = "";
 			var lines = lineBreakRegex.Split(input);
@@ -503,6 +503,26 @@ namespace GoogologyExpander
 				}
 			}
 			return seq;
+		}
+
+		/// <summary>
+		/// 对 EY 序列进行一次展开（一维统一接口，数组输入，数组输出）。
+		/// 展开步数固定为 1，维度限制采用默认不限配置。
+		/// </summary>
+		public static int[] ExpandEY(int[] sequence)
+		{
+			if (sequence == null)
+				throw new ArgumentNullException(nameof(sequence));
+
+			if (sequence.Length == 0)
+				return Array.Empty<int>();
+
+			string mt = "";
+			string resultStr = ExpandMultiLimited(string.Join(",", sequence), "1", "0", ref mt);
+			if (string.IsNullOrEmpty(resultStr))
+				return Array.Empty<int>();
+
+			return resultStr.Split(',').Select(int.Parse).ToArray();
 		}
 
 		private static string ExpandMultiLimited(string s, string nstring, string dstring, ref string mt)

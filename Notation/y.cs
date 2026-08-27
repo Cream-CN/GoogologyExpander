@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace GoogologyExpander
 {
-	public static class YExpander
+	public static class Y
 	{
 		#region 内部数据结构
 		private class MountainElement
@@ -20,8 +20,14 @@ namespace GoogologyExpander
 		/// <summary>
 		/// 展开 Y 序列一次（数组输入，数组输出）
 		/// </summary>
-		public static int[] Expand(int[] sequence)
+		public static int[] ExpandY(int[] sequence)
 		{
+			if (sequence == null)
+				throw new ArgumentNullException(nameof(sequence));
+
+			if (sequence.Length == 0)
+				return Array.Empty<int>();
+
 			// 构建初始层（无强制父索引）
 			var initialLayer = sequence
 				.Select((val, idx) => new MountainElement
@@ -33,9 +39,17 @@ namespace GoogologyExpander
 				})
 				.ToList();
 
+			try
+			{
 			var mountain = CalcMountain(initialLayer);
 			var resultMountain = ExpandInternal(mountain, 1); // 只展开一次
 			return resultMountain[0].Select(e => e.Value).ToArray();
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				// 当前结构无法展开（如末项没有父项），回退为原序列
+				return (int[])sequence.Clone();
+			}
 		}
 		#endregion
 
